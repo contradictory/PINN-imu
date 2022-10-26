@@ -320,10 +320,12 @@ class PINN(nn.Module):
         # output_tt_x2 = autograd.grad(output_t_x2[0], pos, torch.ones_like(torch.ones(400, 1)), create_graph=True)
         # print(output_tt_x0)
 
-        theta_t_w0 = autograd.grad(output[:, 0].unsqueeze(1), pos, torch.ones_like(torch.ones(400, 1)), retain_graph=True)
-        theta_t_w1 = autograd.grad(output[:, 1].unsqueeze(1), pos, torch.ones_like(torch.ones(400, 1)), retain_graph=True)
-        theta_t_w2 = autograd.grad(output[:, 2].unsqueeze(1), pos, torch.ones_like(torch.ones(400, 1)), retain_graph=True)
-
+        # theta_t_w0 = autograd.grad(output[:, 0].unsqueeze(1), pos, torch.ones_like(torch.ones(400, 1)), retain_graph=True)
+        # theta_t_w1 = autograd.grad(output[:, 1].unsqueeze(1), pos, torch.ones_like(torch.ones(400, 1)), retain_graph=True)
+        # theta_t_w2 = autograd.grad(output[:, 2].unsqueeze(1), pos, torch.ones_like(torch.ones(400, 1)), retain_graph=True)
+        theta_t_w0 = d_res[:, 3]
+        theta_t_w1 = d_res[:, 4]
+        theta_t_w2 = d_res[:, 5]
 
         # p_t = torch.sum(self.get_gradient(p, pos))
         # p_tt = torch.sum(self.get_gradient(p_t, pos))
@@ -353,11 +355,14 @@ class PINN(nn.Module):
         # f_a
         # f_w
 
-        p_tt = torch.concat((d_tt[0], d_tt[1], d_tt[2]), 1)
-        theta_t = torch.concat((theta_t_w0[0], theta_t_w1[0], theta_t_w2[0]), 1)
+        p_tt = torch.concat((d_tt[:, 0], d_tt[:, 1], d_tt[:, 2]), 1)
+        print(p_tt)
+        theta_t = d_res[:, 3 : 6]
 
-        a_cur = torch.tensor([[batch[:, 0], batch[:, 1], batch[:, 2]]])
-        w_cur = torch.tensor([[batch[:, 3], batch[:, 4], batch[:, 5]]])
+        a_cur = batch[:, 0 : 3]
+        a_cur = torch.tensor(a_cur)
+        w_cur = batch[:, 3 : 6]
+        w_cur = torch.tensor(w_cur)
         # print(output_t)
         # for k in range(1, 400):
         #     a_cur = torch.concat((a_cur, torch.tensor([[batch[k][0], batch[k][1], batch[k][2]]])), 0)
