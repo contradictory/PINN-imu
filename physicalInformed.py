@@ -80,7 +80,7 @@ class PINN(nn.Module):
             # Activation function
             x = torch.tanh(layer(x))
 
-        # Last layer: we could choose a different functionsoftmax
+        # Last layer: we could choose a different function softmax
         # output= F.softmax(self.out(x), dim=1)
         output = self.out(x)
 

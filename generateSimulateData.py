@@ -27,3 +27,8 @@ def main():
 
 if __name__ == '__main__':
     main()
+
+    # l = torch.zeros_like(y)
+    # l[:, i] = 1.
+    # d = torch.autograd.grad(y, x, retain_graph=True, grad_outputs=l)[0]  #dydx: (batch_size, input_dim)
+    # dydx3 = torch.concat((dydx3, d.unsqueeze(dim=1)), dim=1)

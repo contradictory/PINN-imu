@@ -20,7 +20,7 @@ class PINN(nn.Module):
 
     def __init__(self,
                  # input,
-                 layers_size=torch.tensor([46, 20, 20, 20, 20, 20, 20, 20, 20, 6]),  ## input size 406
+                 layers_size=[46, 20, 20, 20, 20, 20, 20, 20, 20, 6],  ## input size 406
                  out_size=6,
                  params_list=None):
 
@@ -95,7 +95,7 @@ class PINN(nn.Module):
 
     #### Net NS
 
-    def net(self, batch, batch_size, jacobian_t, jacobian_tt):
+    def net(self, batch, batch_size, output):
 
         # input = [[]]
         # torch.tensor([x[:, 0], x[:, 1], x[:, 2], w[:, 0], w[:, 1], w[:, 2]])
@@ -199,7 +199,8 @@ class PINN(nn.Module):
         # print(np.shape(batch))
         self.input = batch
 
-        output = self.forward(batch)
+        # output = self.forward(batch)
+
         # concatenate t from here
         # t = [sin(pos / 100 ^ (2 * i / batch_size)),
         #      cos(pos / 100 ^ (2 * i / batch_size))]
@@ -287,6 +288,7 @@ class PINN(nn.Module):
 
         jacobian_t = autograd.functional.jacobian(lambda l: (l), pos)
         print(jacobian_t)
+        clear_space = []
         for t in range(0, 200):
             # tmp = output[:, t].backward(gradient=torch.ones_like(output[:, t]), retain_graph=True, create_graph=True)
             # l = torch.zeros_like(output[:, t])
@@ -302,6 +304,12 @@ class PINN(nn.Module):
             d5 = torch.autograd.grad(output[:, t], pos, grad_outputs=six_row, retain_graph=True)[0]
             tmp[0], tmp[1], tmp[2], tmp[3], tmp[4], tmp[5] = d0[t], d1[t], d2[t], d3[t], d4[t], d5[t]
             d_res = torch.cat((d_res, tmp.unsqueeze(dim=1)), dim=1)
+            clear_space.append(d0.item())
+            clear_space.append(d1.item())
+            clear_space.append(d2.item())
+            clear_space.append(d3.item())
+            clear_space.append(d4.item())
+            clear_space.append(d5.item())
             print(d0)
             # print(d2)
 
@@ -382,6 +390,18 @@ class PINN(nn.Module):
         # theta_t = theta_t -  w_cur
         return output, T, a_cur, w_cur, theta_t, p_tt
 
+    # def net(self, batch, batch_size, jacobian_t, jacobian_tt):
+    #     print(jacobian_t)
+    #     print(1111111)
+    #     print(jacobian_tt)
+    #
+    #     p_tt = torch.tensor([], dtype=torch.float32)
+    #     theta_t = torch.tensor([], dtype=torch.float32)
+    #     a_cur = torch.tensor([], dtype=torch.float32)
+    #     w_cur = torch.tensor([], dtype=torch.float32)
+    #
+    #     return p_tt, theta_t, a_cur, w_cur, T
+
     def loss(self, output, T, a_cur, w_cur, theta_t, p_tt):
 
         # a f_a, w f_w
@@ -404,27 +424,6 @@ class PINN(nn.Module):
         error_a = torch.mean(torch.square(p_tt - a_T))
         error_w = torch.mean(torch.square(theta_t - w_cur))
         return error_a + error_w
-
-    def get_gradient(self, f, x):
-        """ computes gradient of tensor f with respect to tensor x """
-        assert x.requires_grad
-
-        x_shape = x.shape
-        f_shape = f.shape
-        f = f.view(-1)
-
-        x_grads = []
-        for f_val in f:
-            if x.grad is not None:
-                x.grad.data.zero_()
-            f_val.backward(retain_graph=True)
-            if x.grad is not None:
-                x_grads.append(deepcopy(x.grad.data))
-            else:
-                # in case f isn't a function of x
-                x_grads.append(torch.zeros(x.shape).to(x))
-        output_shape = list(f_shape) + list(x_shape)
-        return torch.cat((x_grads)).view(output_shape)
 
     # def train_normal(self, epochs):
     #
@@ -476,7 +475,7 @@ class PINN(nn.Module):
 
 def main():
     dataloader = loadData('Sensorsimulate.csv')
-    pinn = PINN(dataloader)
+    pinn = PINN()
     # pos = []
     # out = pinn(pos)
     # out.gradient()
@@ -490,25 +489,35 @@ def main():
         for batch in dataloader:
             pos = torch.arange(0, 400, step=1, dtype=torch.float32, requires_grad=True)
             pos = pos.unsqueeze(1)
-            batch = initBatch(batch, pos)
+            input_batch, time_embed = initBatch(batch, pos)
+            print(input_batch.shape)
 
-            output = pinn(batch)
-            jacobian_t = autograd.functional.jacobian(lambda l: pinn(l), pos, create_graph=True)
-            jacobian_tt = autograd.functional.jacobian(lambda l: pinn(l), pos)
+            output = pinn(input_batch)
+            # print(222222)
+            # jacobian_t = autograd.functional.jacobian(lambda l: pinn(l), pos, create_graph=True, strategy='reverse-mode')
+            # print(jacobian_t.shape)
+            #
+            # jacobian_tt = autograd.functional.jacobian(lambda l: pinn(l), pos)
 
-            output, T, a_cur, w_cur, theta_t, p_tt = net(batch, 400)
+            p_tt, theta_t, a_cur, w_cur, T = pinn.net()
+            # p_tt, theta_t, a_cur, w_cur, T = pinn.net(jacobian_t, jacobian_tt)
+            batch_loss = pinn.loss(output, T, a_cur, w_cur, theta_t, p_tt)
 
-            loss_ = loss(output, T, a_cur, w_cur, theta_t, p_tt)
-            loss_print = loss_
-            optimizer.zero_grad()  # Clear gradients for the next mini-batches
+            batch_loss.backward()
 
-            loss_.backward()  # Backpropagation, compute gradients
-
-            optimizer.step()
-                # t1 = time.time()
-
-                ### Training status
-            print('Epoch %d, Loss= %.10f' % (epoch, loss_print))
+            # output, T, a_cur, w_cur, theta_t, p_tt = net(batch, 400)
+            #
+            # loss_ = loss(output, T, a_cur, w_cur, theta_t, p_tt)
+            # loss_print = loss_
+            # optimizer.zero_grad()  # Clear gradients for the next mini-batches
+            #
+            # loss_.backward()  # Backpropagation, compute gradients
+            #
+            # optimizer.step()
+            #     # t1 = time.time()
+            #
+            #     ### Training status
+            # print('Epoch %d, Loss= %.10f' % (epoch, loss_print))
 
 
 
@@ -541,30 +550,30 @@ def main():
     pinn.train_normal(20)
 
 
-def train_normal(self, epochs):
-
-    t0 = time.time()
-    input = self.input
-    # input = torch.tensor(self.input)
-
-    for epoch in range(epochs):
-            # u_hat, v_hat, p_hat, f_u, f_v = self.net(self.x, self.y, self.t)
-            # loss_ = self.loss(self.u, self.v, u_hat, v_hat, f_u, f_v)
-
-        for batch in input:
-            output, T, a_cur, w_cur, theta_t, p_tt = self.net(batch, 400)
-
-            loss_ = self.loss(output, T, a_cur, w_cur, theta_t, p_tt)
-            loss_print = loss_
-            self.optimizer.zero_grad()  # Clear gradients for the next mini-batches
-
-            loss_.backward()  # Backpropagation, compute gradients
-
-            self.optimizer.step()
-                # t1 = time.time()
-
-                ### Training status
-            print('Epoch %d, Loss= %.10f' % (epoch, loss_print))
+# def train_normal(self, epochs):
+#
+#     t0 = time.time()
+#     input = self.input
+#     # input = torch.tensor(self.input)
+#
+#     for epoch in range(epochs):
+#             # u_hat, v_hat, p_hat, f_u, f_v = self.net(self.x, self.y, self.t)
+#             # loss_ = self.loss(self.u, self.v, u_hat, v_hat, f_u, f_v)
+#
+#         for batch in input:
+#             output, T, a_cur, w_cur, theta_t, p_tt = self.net(batch, 400)
+#
+#             loss_ = self.loss(output, T, a_cur, w_cur, theta_t, p_tt)
+#             loss_print = loss_
+#             self.optimizer.zero_grad()  # Clear gradients for the next mini-batches
+#
+#             loss_.backward()  # Backpropagation, compute gradients
+#
+#             self.optimizer.step()
+#                 # t1 = time.time()
+#
+#                 ### Training status
+#             print('Epoch %d, Loss= %.10f' % (epoch, loss_print))
 
 
 def loadData(path):
@@ -623,7 +632,8 @@ def initBatch(batch, pos):
     batch = np.transpose(batch)
     batch = torch.tensor(batch, dtype=torch.float32, requires_grad=True)
     batch = torch.cat((batch, time_embed), 1)
-    return batch
+    print(batch.shape)
+    return batch, time_embed
 
 
 if __name__ == '__main__':
