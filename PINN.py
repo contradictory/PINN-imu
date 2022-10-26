@@ -254,7 +254,7 @@ class PINN(nn.Module):
         # jacobian_t = autograd.functional.jacobian(lambda l: (l), pos)
         # print(jacobian_t)
         clear_space = []
-        for t in range(0, 50):
+        for t in range(0, 10):
             # tmp = output[:, t].backward(gradient=torch.ones_like(output[:, t]), retain_graph=True, create_graph=True)
             # l = torch.zeros_like(output[:, t])
             # l[t] = 1
@@ -286,7 +286,7 @@ class PINN(nn.Module):
             # print(d2)
 
         d_tt = torch.tensor([], dtype=torch.float32)
-        for t in range(0, 50):
+        for t in range(0, 10):
             d_tt0 = torch.autograd.grad(d_res[:, t], pos, grad_outputs=first_row, retain_graph=True)[0]
             d_tt1 = torch.autograd.grad(d_res[:, t], pos, grad_outputs=second_row, retain_graph=True)[0]
             d_tt2 = torch.autograd.grad(d_res[:, t], pos, grad_outputs=third_row, retain_graph=True)[0]
