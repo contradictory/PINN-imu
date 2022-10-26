@@ -254,7 +254,7 @@ class PINN(nn.Module):
         # jacobian_t = autograd.functional.jacobian(lambda l: (l), pos)
         # print(jacobian_t)
         clear_space = []
-        for t in range(0, 10):
+        for t in range(0, 6):
             # tmp = output[:, t].backward(gradient=torch.ones_like(output[:, t]), retain_graph=True, create_graph=True)
             # l = torch.zeros_like(output[:, t])
             # l[t] = 1
@@ -286,7 +286,7 @@ class PINN(nn.Module):
             # print(d2)
 
         d_tt = torch.tensor([], dtype=torch.float32)
-        for t in range(0, 10):
+        for t in range(0, 6):
             d_tt0 = torch.autograd.grad(d_res[:, t], pos, grad_outputs=first_row, retain_graph=True)[0]
             d_tt1 = torch.autograd.grad(d_res[:, t], pos, grad_outputs=second_row, retain_graph=True)[0]
             d_tt2 = torch.autograd.grad(d_res[:, t], pos, grad_outputs=third_row, retain_graph=True)[0]
@@ -360,9 +360,9 @@ class PINN(nn.Module):
         theta_t = d_res[:, 3 : 6]
 
         a_cur = batch[:, 0 : 3]
-        a_cur = torch.tensor(a_cur)
+        # a_cur = torch.tensor(a_cur)
         w_cur = batch[:, 3 : 6]
-        w_cur = torch.tensor(w_cur)
+        # w_cur = torch.tensor(w_cur)
         # print(output_t)
         # for k in range(1, 400):
         #     a_cur = torch.concat((a_cur, torch.tensor([[batch[k][0], batch[k][1], batch[k][2]]])), 0)
@@ -401,10 +401,13 @@ class PINN(nn.Module):
         a_T = T[:, :, 0].mm(a_cur[0, :].reshape(3, 1)) + g.reshape(3, 1)
 
         for i in range(1, 400):
-
             a_T = torch.concat((a_T, T[:, :, i].mm(a_cur[i, :].reshape(3, 1)) + g.reshape(3, 1)), 1)
         print(a_T.size())
 
+        theta_t = torch.transpose(theta_t, 0, 1)
+        p_tt = torch.transpose(p_tt, 0, 1)
+        print(p_tt.size())
+        print(theta_t.shape)
         error_a = torch.mean(torch.square(p_tt - a_T))
         error_w = torch.mean(torch.square(theta_t - w_cur))
         return error_a + error_w
@@ -489,6 +492,7 @@ def main():
             batch_loss = pinn.loss(output, T, a_cur, w_cur, theta_t, p_tt)
 
             batch_loss.backward()
+            print(batch_loss)
 
             # output, T, a_cur, w_cur, theta_t, p_tt = net(batch, 400)
             #
@@ -532,7 +536,7 @@ def main():
     #             ### Training status
     #             print('Epoch %d, Loss= %.10f' % (epoch, loss_print))
 
-    pinn.train_normal(20)
+    # pinn.train_normal(20)
 
 
 # def train_normal(self, epochs):
