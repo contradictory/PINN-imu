@@ -254,7 +254,7 @@ class PINN(nn.Module):
         # jacobian_t = autograd.functional.jacobian(lambda l: (l), pos)
         # print(jacobian_t)
         clear_space = []
-        for t in range(0, 100):
+        for t in range(0, 50):
             # tmp = output[:, t].backward(gradient=torch.ones_like(output[:, t]), retain_graph=True, create_graph=True)
             # l = torch.zeros_like(output[:, t])
             # l[t] = 1
@@ -286,7 +286,7 @@ class PINN(nn.Module):
             # print(d2)
 
         d_tt = torch.tensor([], dtype=torch.float32)
-        for t in range(0, 100):
+        for t in range(0, 50):
             d_tt0 = torch.autograd.grad(d_res[:, t], pos, grad_outputs=first_row, retain_graph=True)[0]
             d_tt1 = torch.autograd.grad(d_res[:, t], pos, grad_outputs=second_row, retain_graph=True)[0]
             d_tt2 = torch.autograd.grad(d_res[:, t], pos, grad_outputs=third_row, retain_graph=True)[0]
@@ -296,7 +296,14 @@ class PINN(nn.Module):
 
             tmp[0], tmp[1], tmp[2], tmp[3], tmp[4], tmp[5] = d_tt0[t], d_tt1[t], d_tt2[t], d_tt3[t], d_tt4[t], d_tt5[t]
             d_tt = torch.cat((d_tt, d_tt0.unsqueeze(dim=1)), dim=1)
-
+            print(t)
+            del(d_tt0)
+            del(d_tt1)
+            del(d_tt2)
+            del(d_tt3)
+            del(d_tt4)
+            del(d_tt5)
+        print("d_tt get")
 
         # print(output_t_x0)
         # output_t_x1 = autograd.grad(output[:, 1].unsqueeze(1), pos, torch.ones_like(torch.ones(400, 1)), retain_graph=True, create_graph=True)
@@ -346,15 +353,15 @@ class PINN(nn.Module):
         # f_a
         # f_w
 
-        p_tt = torch.concat((output_tt_x0[0], output_tt_x1[0], output_tt_x2[0]), 1)
+        p_tt = torch.concat((d_tt[0], d_tt[1], d_tt[2]), 1)
         theta_t = torch.concat((theta_t_w0[0], theta_t_w1[0], theta_t_w2[0]), 1)
 
-        a_cur = torch.tensor([[batch[0][0], batch[0][1], batch[0][2]]])
-        w_cur = torch.tensor([[batch[0][3], batch[0][4], batch[0][5]]])
+        a_cur = torch.tensor([[batch[:, 0], batch[:, 1], batch[:, 2]]])
+        w_cur = torch.tensor([[batch[:, 3], batch[:, 4], batch[:, 5]]])
         # print(output_t)
-        for k in range(1, 400):
-            a_cur = torch.concat((a_cur, torch.tensor([[batch[k][0], batch[k][1], batch[k][2]]])), 0)
-            w_cur = torch.concat((w_cur, torch.tensor([[batch[k][3], batch[k][4], batch[k][5]]])), 0)
+        # for k in range(1, 400):
+        #     a_cur = torch.concat((a_cur, torch.tensor([[batch[k][0], batch[k][1], batch[k][2]]])), 0)
+        #     w_cur = torch.concat((w_cur, torch.tensor([[batch[k][3], batch[k][4], batch[k][5]]])), 0)
 
         print(a_cur.size())
 
