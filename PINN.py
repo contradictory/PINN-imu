@@ -95,47 +95,13 @@ class PINN(nn.Module):
 
     #### Net NS
 
-    def net(self, batch, batch_size, output):
-
-        # input = [[]]
-        # torch.tensor([x[:, 0], x[:, 1], x[:, 2], w[:, 0], w[:, 1], w[:, 2]])
-        time_embed1, time_embed2 = [], []
+    def net(self, batch, batch_size):
 
 
-
-        # pos = torch.tensor(init, dtype=torch.float32)
-        # self.pos = torch.from_numpy(np.array([*range(400)], dtype=np.float32))
-
-
-        # pos = torch.tensor([0], dtype=torch.float32, requires_grad=True)
-        pos = torch.arange(0, 400, step=1, dtype=torch.float32)
-        # for i in range(1, 400):
-        #     pos = torch.concat((pos, torch.tensor([i], dtype=torch.float32)), 0)
+        pos = torch.arange(0, 400, step=1, dtype=torch.float32, requires_grad=True)
         pos = pos.unsqueeze(1)
 
-        # p_e = numpy.arange(0, 400)
-        # time_e = numpy.zeros(400, 40)
-        # for i in range(0, 400):
-        #     for j in range(0, 20):
-        #         time_e[i][j].data = torch.sin(p_e[i] / j)
-        #     for j in range(k, k + 20):
-        #         time_e[i][j].data = torch.cos(p_e[i] / j)
-
-
         k = 20
-
-        # for p in range(0, batch_size):
-        #     pos[p] = p
-        # pos = Variable(pos, requires_grad=True)
-
-        # row_embed1 = torch.empty()
-        # row_embed2 = torch.empty()
-        # first_embed = torch.empty()
-        # second_embed = torch.empty()
-        # time_embed = torch.empty()
-
-        # time_embed = torch.tensor([[torch.sin(pos[0] / torch.pow(torch.tensor(100), 0))]], dtype=torch.float32, requires_grad=True)
-        # time_embed = torch.sin(pos[0] / torch.pow(torch.tensor(100), 0))
         time_embed = torch.zeros(400, 40)
         for i in range(0, 400):
             for j in range(1, 20):
@@ -144,7 +110,6 @@ class PINN(nn.Module):
                 time_embed[i][j - 1] = torch.cos(pos[i][0] / j)
 
         print(time_embed)
-
         # for i in range(1, k):
         #     time_embed = torch.concat((time_embed, torch.sin(pos[0] / torch.pow(torch.tensor(100), 2 * i / 40))), 1)
         # for i in range(k, 2 * k):
@@ -199,7 +164,7 @@ class PINN(nn.Module):
         # print(np.shape(batch))
         self.input = batch
 
-        # output = self.forward(batch)
+        output = self.forward(batch)
 
         # concatenate t from here
         # t = [sin(pos / 100 ^ (2 * i / batch_size)),
@@ -286,10 +251,10 @@ class PINN(nn.Module):
         # output_t_x0 = autograd.grad(output[:, 0].unsqueeze(1), pos, torch.ones_like(torch.ones(400, 1)), retain_graph=True, create_graph=True)[1]
         # output_t = autograd.grad(output, pos, grad_outputs=torch.ones_like(grad_outputs_p), retain_graph=True, create_graph=True)
 
-        jacobian_t = autograd.functional.jacobian(lambda l: (l), pos)
-        print(jacobian_t)
+        # jacobian_t = autograd.functional.jacobian(lambda l: (l), pos)
+        # print(jacobian_t)
         clear_space = []
-        for t in range(0, 200):
+        for t in range(0, 100):
             # tmp = output[:, t].backward(gradient=torch.ones_like(output[:, t]), retain_graph=True, create_graph=True)
             # l = torch.zeros_like(output[:, t])
             # l[t] = 1
@@ -304,17 +269,24 @@ class PINN(nn.Module):
             d5 = torch.autograd.grad(output[:, t], pos, grad_outputs=six_row, retain_graph=True)[0]
             tmp[0], tmp[1], tmp[2], tmp[3], tmp[4], tmp[5] = d0[t], d1[t], d2[t], d3[t], d4[t], d5[t]
             d_res = torch.cat((d_res, tmp.unsqueeze(dim=1)), dim=1)
-            clear_space.append(d0.item())
-            clear_space.append(d1.item())
-            clear_space.append(d2.item())
-            clear_space.append(d3.item())
-            clear_space.append(d4.item())
-            clear_space.append(d5.item())
+            # clear_space.append(d0[0].item())
+            # clear_space.append(d1[0].item())
+            # clear_space.append(d2[0].item())
+            # clear_space.append(d3[0].item())
+            # clear_space.append(d4[0].item())
+            # clear_space.append(d5[0].item())
             print(d0)
+            del(d0)
+            del(d1)
+            del(d2)
+            del(d3)
+            del(d4)
+            del(d5)
+
             # print(d2)
 
         d_tt = torch.tensor([], dtype=torch.float32)
-        for t in range(0, 400):
+        for t in range(0, 100):
             d_tt0 = torch.autograd.grad(d_res[:, t], pos, grad_outputs=first_row, retain_graph=True)[0]
             d_tt1 = torch.autograd.grad(d_res[:, t], pos, grad_outputs=second_row, retain_graph=True)[0]
             d_tt2 = torch.autograd.grad(d_res[:, t], pos, grad_outputs=third_row, retain_graph=True)[0]
@@ -489,17 +461,18 @@ def main():
         for batch in dataloader:
             pos = torch.arange(0, 400, step=1, dtype=torch.float32, requires_grad=True)
             pos = pos.unsqueeze(1)
-            input_batch, time_embed = initBatch(batch, pos)
-            print(input_batch.shape)
+            # input_batch, time_embed = initBatch(batch, pos)
+            # print(input_batch.shape)
 
-            output = pinn(input_batch)
+            # output = pinn(input_batch)
             # print(222222)
             # jacobian_t = autograd.functional.jacobian(lambda l: pinn(l), pos, create_graph=True, strategy='reverse-mode')
             # print(jacobian_t.shape)
             #
             # jacobian_tt = autograd.functional.jacobian(lambda l: pinn(l), pos)
 
-            p_tt, theta_t, a_cur, w_cur, T = pinn.net()
+            output, T, a_cur, w_cur, theta_t, p_tt = pinn.net(batch, 400)
+            print(111122)
             # p_tt, theta_t, a_cur, w_cur, T = pinn.net(jacobian_t, jacobian_tt)
             batch_loss = pinn.loss(output, T, a_cur, w_cur, theta_t, p_tt)
 
