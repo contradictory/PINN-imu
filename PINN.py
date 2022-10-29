@@ -259,7 +259,7 @@ class PINN(nn.Module):
             # l[t] = 1
 
 
-
+            # d_veri = torch.autograd.grad(output[:, t], pos, grad_outputs=torch.ones_like(first_row), retain_graph=True)
             d0 = torch.autograd.grad(output[:, t], pos, grad_outputs=first_row, retain_graph=True, create_graph=True)[0]
             d1 = torch.autograd.grad(output[:, t], pos, grad_outputs=second_row, retain_graph=True, create_graph=True)[0]
             d2 = torch.autograd.grad(output[:, t], pos, grad_outputs=third_row, retain_graph=True, create_graph=True)[0]
@@ -290,9 +290,12 @@ class PINN(nn.Module):
             d_tt0 = torch.autograd.grad(d_res[:, t], pos, grad_outputs=first_row,  retain_graph=True)[0]
             d_tt1 = torch.autograd.grad(d_res[:, t], pos, grad_outputs=second_row, retain_graph=True)[0]
             d_tt2 = torch.autograd.grad(d_res[:, t], pos, grad_outputs=third_row, retain_graph=True)[0]
-            d_tt3 = torch.autograd.grad(d_res[:, t], pos, grad_outputs=four_row, retain_graph=True)[0]   #### zheli haikeyi zai youhua qu 0, huozhe zhijie buyao zhe 3 weidu
-            d_tt4 = torch.autograd.grad(d_res[:, t], pos, grad_outputs=five_row, retain_graph=True)[0]
-            d_tt5 = torch.autograd.grad(d_res[:, t], pos, grad_outputs=six_row, retain_graph=True)[0]
+            # d_tt3 = torch.autograd.grad(d_res[:, t], pos, grad_outputs=four_row, retain_graph=True)[0]   #### zheli haikeyi zai youhua qu 0, huozhe zhijie buyao zhe 3 weidu
+            # d_tt4 = torch.autograd.grad(d_res[:, t], pos, grad_outputs=five_row, retain_graph=True)[0]
+            # d_tt5 = torch.autograd.grad(d_res[:, t], pos, grad_outputs=six_row, retain_graph=True)[0]
+            d_tt3 = torch.zeros_like(d_tt0)
+            d_tt4 = torch.zeros_like(d_tt0)
+            d_tt5 = torch.zeros_like(d_tt0)
 
             tmp[0], tmp[1], tmp[2], tmp[3], tmp[4], tmp[5] = d_tt0[t], d_tt1[t], d_tt2[t], d_tt3[t], d_tt4[t], d_tt5[t]
             d_tt = torch.cat((d_tt, tmp.unsqueeze(dim=1)), dim=1)
