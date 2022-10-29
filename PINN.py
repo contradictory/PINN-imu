@@ -241,8 +241,7 @@ class PINN(nn.Module):
         six_row = torch.tensor([0, 0, 0, 0, 0, 1])
         one = torch.ones((6, 6))
 
-        print(pos.shape)
-        # print(time_embed.shape)
+
 
         output = torch.transpose(output, 0, 1)
         print(output[:, 1])
@@ -254,7 +253,7 @@ class PINN(nn.Module):
         # jacobian_t = autograd.functional.jacobian(lambda l: (l), pos)
         # print(jacobian_t)
         clear_space = []
-        for t in range(0, 6):
+        for t in range(0, 8):
             # tmp = output[:, t].backward(gradient=torch.ones_like(output[:, t]), retain_graph=True, create_graph=True)
             # l = torch.zeros_like(output[:, t])
             # l[t] = 1
@@ -262,8 +261,8 @@ class PINN(nn.Module):
 
 
             d0 = torch.autograd.grad(output[:, t], pos, grad_outputs=first_row, retain_graph=True, create_graph=True)[0]
-            d1 = torch.autograd.grad(output[:, t], pos, grad_outputs=second_row, retain_graph=True)[0]
-            d2 = torch.autograd.grad(output[:, t], pos, grad_outputs=third_row, retain_graph=True)[0]
+            d1 = torch.autograd.grad(output[:, t], pos, grad_outputs=second_row, retain_graph=True, create_graph=True)[0]
+            d2 = torch.autograd.grad(output[:, t], pos, grad_outputs=third_row, retain_graph=True, create_graph=True)[0]
             d3 = torch.autograd.grad(output[:, t], pos, grad_outputs=four_row, retain_graph=True)[0]
             d4 = torch.autograd.grad(output[:, t], pos, grad_outputs=five_row, retain_graph=True)[0]
             d5 = torch.autograd.grad(output[:, t], pos, grad_outputs=six_row, retain_graph=True)[0]
@@ -275,7 +274,7 @@ class PINN(nn.Module):
             # clear_space.append(d3[0].item())
             # clear_space.append(d4[0].item())
             # clear_space.append(d5[0].item())
-            print(d0)
+            print(t)
             del(d0)
             del(d1)
             del(d2)
@@ -284,18 +283,19 @@ class PINN(nn.Module):
             del(d5)
 
             # print(d2)
+        print(d_res.size())
 
         d_tt = torch.tensor([], dtype=torch.float32)
-        for t in range(0, 6):
-            d_tt0 = torch.autograd.grad(d_res[:, t], pos, grad_outputs=first_row, retain_graph=True)[0]
+        for t in range(0, 8):
+            d_tt0 = torch.autograd.grad(d_res[:, t], pos, grad_outputs=first_row,  retain_graph=True)[0]
             d_tt1 = torch.autograd.grad(d_res[:, t], pos, grad_outputs=second_row, retain_graph=True)[0]
             d_tt2 = torch.autograd.grad(d_res[:, t], pos, grad_outputs=third_row, retain_graph=True)[0]
-            d_tt3 = torch.autograd.grad(d_res[:, t], pos, grad_outputs=four_row, retain_graph=True)[0]
+            d_tt3 = torch.autograd.grad(d_res[:, t], pos, grad_outputs=four_row, retain_graph=True)[0]   #### zheli haikeyi zai youhua qu 0, huozhe zhijie buyao zhe 3 weidu
             d_tt4 = torch.autograd.grad(d_res[:, t], pos, grad_outputs=five_row, retain_graph=True)[0]
             d_tt5 = torch.autograd.grad(d_res[:, t], pos, grad_outputs=six_row, retain_graph=True)[0]
 
             tmp[0], tmp[1], tmp[2], tmp[3], tmp[4], tmp[5] = d_tt0[t], d_tt1[t], d_tt2[t], d_tt3[t], d_tt4[t], d_tt5[t]
-            d_tt = torch.cat((d_tt, d_tt0.unsqueeze(dim=1)), dim=1)
+            d_tt = torch.cat((d_tt, tmp.unsqueeze(dim=1)), dim=1)
             print(t)
             del(d_tt0)
             del(d_tt1)
@@ -304,6 +304,7 @@ class PINN(nn.Module):
             del(d_tt4)
             del(d_tt5)
         print("d_tt get")
+        print(d_tt)
 
         # print(output_t_x0)
         # output_t_x1 = autograd.grad(output[:, 1].unsqueeze(1), pos, torch.ones_like(torch.ones(400, 1)), retain_graph=True, create_graph=True)
@@ -336,7 +337,7 @@ class PINN(nn.Module):
         # p_t = torch.sum(self.get_gradient(p, pos))
 
         # theta_t = autograd.grad(theta, pos, )
-        print(theta_t_w0[0])
+        # print(theta_t_w0[0])
 
         # theta_t = output_t[0][:, 3:6]
         # p_tt = output_t[0][:, 0:3]
@@ -355,14 +356,16 @@ class PINN(nn.Module):
         # f_a
         # f_w
 
-        p_tt = torch.concat((d_tt[:, 0], d_tt[:, 1], d_tt[:, 2]), 1)
+        p_tt = torch.cat((d_tt[0, :].unsqueeze(dim=0), d_tt[1, :].unsqueeze(dim=0), d_tt[2, :].unsqueeze(dim=0)), 0)
         print(p_tt)
-        theta_t = d_res[:, 3 : 6]
+        print(d_res.size())
+        theta_t = torch.cat((d_res[3, :].unsqueeze(dim=0), d_res[4, :].unsqueeze(dim=0), d_res[5, :].unsqueeze(dim=0)), 0)
+        print(theta_t)
 
-        a_cur = batch[:, 0 : 3]
-        # a_cur = torch.tensor(a_cur)
-        w_cur = batch[:, 3 : 6]
-        # w_cur = torch.tensor(w_cur)
+        # a_cur = batch[:, 0 : 3]
+        a_cur = torch.ones_like(p_tt)
+        # w_cur = batch[:, 3 : 6]
+        w_cur = torch.ones_like(theta_t)
         # print(output_t)
         # for k in range(1, 400):
         #     a_cur = torch.concat((a_cur, torch.tensor([[batch[k][0], batch[k][1], batch[k][2]]])), 0)
@@ -396,18 +399,18 @@ class PINN(nn.Module):
         g = torch.tensor([0, 0, -9.81])
         # print(p_tt.size())
         T = torch.tensor(np.array(T))
-        print(a_cur[0, :].reshape(3, 1))
+        # print(a_cur[0, :].reshape(3, 1))
 
-        a_T = T[:, :, 0].mm(a_cur[0, :].reshape(3, 1)) + g.reshape(3, 1)
-
-        for i in range(1, 400):
-            a_T = torch.concat((a_T, T[:, :, i].mm(a_cur[i, :].reshape(3, 1)) + g.reshape(3, 1)), 1)
+        a_T = T[:, :, 0].mm(a_cur[:, 0].unsqueeze(dim=1)) + g.reshape(3, 1)
+        ##### T mul is wrong here
+        for i in range(1, 8):
+            a_T = torch.concat((a_T, T[:, :, i].mm(a_cur[:, i].unsqueeze(dim=1)) + g.reshape(3, 1)), 1)
         print(a_T.size())
 
-        theta_t = torch.transpose(theta_t, 0, 1)
-        p_tt = torch.transpose(p_tt, 0, 1)
+        # theta_t = torch.transpose(theta_t, 0, 1)
+        # p_tt = torch.transpose(p_tt, 0, 1)
         print(p_tt.size())
-        print(theta_t.shape)
+        print(w_cur.shape)
         error_a = torch.mean(torch.square(p_tt - a_T))
         error_w = torch.mean(torch.square(theta_t - w_cur))
         return error_a + error_w
