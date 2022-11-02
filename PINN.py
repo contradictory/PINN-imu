@@ -73,9 +73,9 @@ class PINN(nn.Module):
 
         # self.model = nn.ModuleDict()
 
-        # self.optimizer = optim.SGD(
-        #                           lr= 0.001,
-        #                           weight_decay= 0.0)
+        self.optimizer = optim.SGD(self.parameters(),
+                                  lr= 0.001,
+                                  )
 
     #### Forward pass
 
@@ -98,18 +98,17 @@ class PINN(nn.Module):
     def net(self, batch, batch_size):
 
 
-        pos = torch.arange(0, 400, step=1, dtype=torch.float32, requires_grad=True)
+        pos = torch.arange(0, 100, step=1, dtype=torch.float32, requires_grad=True)
         pos = pos.unsqueeze(1)
 
         k = 20
-        time_embed = torch.zeros(400, 40)
-        for i in range(0, 400):
+        time_embed = torch.zeros(100, 40)
+        for i in range(0, 100):
             for j in range(1, 20):
                 time_embed[i][j - 1] = torch.sin(pos[i][0] / j)
             for j in range(k, k + 21):
                 time_embed[i][j - 1] = torch.cos(pos[i][0] / j)
 
-        print(time_embed)
 
         batch = np.transpose(batch)
 
@@ -154,7 +153,7 @@ class PINN(nn.Module):
 
 
         output = torch.transpose(output, 0, 1)
-        print(output[:, 1])
+        # print(output[:, 1])
         d_res = torch.tensor([], dtype=torch.float32)
         tmp = torch.zeros(6)
         # output_t_x0 = autograd.grad(output[:, 0].unsqueeze(1), pos, torch.ones_like(torch.ones(400, 1)), retain_graph=True, create_graph=True)[1]
@@ -163,7 +162,7 @@ class PINN(nn.Module):
         # jacobian_t = autograd.functional.jacobian(lambda l: (l), pos)
         # print(jacobian_t)
         clear_space = []
-        for t in range(0, 8):
+        for t in range(0, 100):
             # tmp = output[:, t].backward(gradient=torch.ones_like(output[:, t]), retain_graph=True, create_graph=True)
             # l = torch.zeros_like(output[:, t])
             # l[t] = 1
@@ -188,7 +187,7 @@ class PINN(nn.Module):
         print(d_res.size())
 
         d_tt = torch.tensor([], dtype=torch.float32)
-        for t in range(0, 8):
+        for t in range(0, 100):
             d_tt0 = torch.autograd.grad(d_res[:, t], pos, grad_outputs=first_row,  retain_graph=True)[0]
             d_tt1 = torch.autograd.grad(d_res[:, t], pos, grad_outputs=second_row, retain_graph=True)[0]
             d_tt2 = torch.autograd.grad(d_res[:, t], pos, grad_outputs=third_row, retain_graph=True)[0]
@@ -214,7 +213,6 @@ class PINN(nn.Module):
 
         p_tt = torch.cat((d_tt[0, :].unsqueeze(dim=0), d_tt[1, :].unsqueeze(dim=0), d_tt[2, :].unsqueeze(dim=0)), 0)
         print(p_tt)
-        print(d_res.size())
         theta_t = torch.cat((d_res[3, :].unsqueeze(dim=0), d_res[4, :].unsqueeze(dim=0), d_res[5, :].unsqueeze(dim=0)), 0)
         print(theta_t)
 
@@ -242,15 +240,19 @@ class PINN(nn.Module):
         ## T mul is wrong here
         for i in range(1, 8):
             a_T = torch.concat((a_T, T[:, :, i].mm(a_cur[:, i].unsqueeze(dim=1)) + g.reshape(3, 1)), 1)
-        print(a_T.size())
+        # print(a_T.size())
 
         # theta_t = torch.transpose(theta_t, 0, 1)
         # p_tt = torch.transpose(p_tt, 0, 1)
-        print(p_tt.size())
-        print(w_cur.shape)
+        # print(p_tt.size())
+        # print(w_cur.shape)
         error_a = torch.mean(torch.square(p_tt - a_T))
         error_w = torch.mean(torch.square(theta_t - w_cur))
         return error_a + error_w
+
+    def init_optimizer(self, pos):
+        optimizer = optim.SGD(params=pos, lr=0.001, weight_decay=0)
+        return optimizer
 
 
     def get_gradient(self, f, x):
@@ -275,6 +277,7 @@ class PINN(nn.Module):
         return torch.cat((x_grads)).view(output_shape)
 
 
+
 def main():
     dataloader = loadData('Sensorsimulate.csv')
     pinn = PINN()
@@ -287,9 +290,12 @@ def main():
 
 
         for batch in dataloader:
+            t0 = time.time()
             pos = torch.arange(0, 400, step=1, dtype=torch.float32, requires_grad=True)
             pos = pos.unsqueeze(1)
             # input_batch, time_embed = initBatch(batch, pos)
+            # for name, p in pinn.named_parameters(): print(name)
+            # optimizer = pinn.init_optimizer(pos)
             # print(input_batch.shape)
 
             # output = pinn(input_batch)
@@ -304,10 +310,11 @@ def main():
             # p_tt, theta_t, a_cur, w_cur, T = pinn.net(jacobian_t, jacobian_tt)
             batch_loss = pinn.loss(output, T, a_cur, w_cur, theta_t, p_tt)
 
+            pinn.optimizer.zero_grad()
             batch_loss.backward()
-            # pinn.optimizer.zero_grad()
-            # pinn.optimizer.step()
-            print(batch_loss)
+            pinn.optimizer.step()
+            t1 = time.time()
+            print('Loss= %.10f, Time= %.4f' % (batch_loss, t1 - t0))
 
             # output, T, a_cur, w_cur, theta_t, p_tt = net(batch, 400)
             #
@@ -334,7 +341,7 @@ def loadData(path):
     dataloader = []
     batch = []
 
-    for i in range(0, 25):
+    for i in range(0, 10):
         j = 0
         for row in dataReader:
             a0.append(float(row[0]))
@@ -344,7 +351,7 @@ def loadData(path):
             w1.append(float(row[4]))
             w2.append(float(row[5]))
             j = j + 1
-            if j == 400:
+            if j == 100:
                 break
         batch.append(a0.copy())
         batch.append(a1.copy())
