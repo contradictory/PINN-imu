@@ -12,6 +12,8 @@ import torch.optim as optim
 
 # import torch.nn.functional as F
 
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
 class PINN(nn.Module):
     '''
     Neural Network Class
@@ -20,7 +22,7 @@ class PINN(nn.Module):
 
     def __init__(self,
                  # input,
-                 layers_size=[46, 20, 20, 20, 20, 20, 20, 20, 20, 6],  ## input size 406
+                 layers_size=[16, 20, 20, 6],  ## input size 406
                  out_size=6,
                  params_list=None):
 
@@ -99,14 +101,14 @@ class PINN(nn.Module):
 
 
         pos = torch.arange(0, 100, step=1, dtype=torch.float32, requires_grad=True)
-        pos = pos.unsqueeze(1)
+        pos = pos.unsqueeze(1).to(device)
 
-        k = 20
-        time_embed = torch.zeros(100, 40)
+        k = 5
+        time_embed = torch.zeros(100, 10)
         for i in range(0, 100):
-            for j in range(1, 20):
+            for j in range(1, 5):
                 time_embed[i][j - 1] = torch.sin(pos[i][0] / j)
-            for j in range(k, k + 21):
+            for j in range(k, k + 6):
                 time_embed[i][j - 1] = torch.cos(pos[i][0] / j)
 
 
@@ -114,12 +116,12 @@ class PINN(nn.Module):
 
         batch = torch.tensor(batch, dtype=torch.float32, requires_grad=True)
 
-        batch = torch.cat((batch, time_embed), 1)
+        batch = torch.cat((batch, time_embed), 1).to(device)
         self.input = batch
 
         output = self.forward(batch)
 
-        output_scalar = output.clone().detach().numpy()
+        output_scalar = output.cpu().clone().detach().numpy()
         p = [output_scalar[:, 0], output_scalar[:, 1], output_scalar[:, 2]]
         theta = [output_scalar[:, 3], output_scalar[:, 4], output_scalar[:, 5]]
 
@@ -143,19 +145,19 @@ class PINN(nn.Module):
 
 
         # grad_outputs_p = torch.ones(400, 1, dtype=torch.float32)
-        first_row = torch.tensor([1, 0, 0, 0, 0, 0])
-        second_row = torch.tensor([0, 1, 0, 0, 0, 0])
-        third_row = torch.tensor([0, 0, 1, 0, 0, 0])
-        four_row = torch.tensor([0, 0, 0, 1, 0, 0])
-        five_row = torch.tensor([0, 0, 0, 0, 1, 0])
-        six_row = torch.tensor([0, 0, 0, 0, 0, 1])
+        first_row = torch.tensor([1, 0, 0, 0, 0, 0]).to(device)
+        second_row = torch.tensor([0, 1, 0, 0, 0, 0]).to(device)
+        third_row = torch.tensor([0, 0, 1, 0, 0, 0]).to(device)
+        four_row = torch.tensor([0, 0, 0, 1, 0, 0]).to(device)
+        five_row = torch.tensor([0, 0, 0, 0, 1, 0]).to(device)
+        six_row = torch.tensor([0, 0, 0, 0, 0, 1]).to(device)
         # one = torch.ones((6, 6))
 
 
         output = torch.transpose(output, 0, 1)
         # print(output[:, 1])
-        d_res = torch.tensor([], dtype=torch.float32)
-        tmp = torch.zeros(6)
+        d_res = torch.tensor([], dtype=torch.float32).to(device)
+        tmp = torch.zeros(6).to(device)
         # output_t_x0 = autograd.grad(output[:, 0].unsqueeze(1), pos, torch.ones_like(torch.ones(400, 1)), retain_graph=True, create_graph=True)[1]
         # output_t = autograd.grad(output, pos, grad_outputs=torch.ones_like(grad_outputs_p), retain_graph=True, create_graph=True)
 
@@ -186,7 +188,7 @@ class PINN(nn.Module):
 
         print(d_res.size())
 
-        d_tt = torch.tensor([], dtype=torch.float32)
+        d_tt = torch.tensor([], dtype=torch.float32).to(device)
         for t in range(0, 100):
             d_tt0 = torch.autograd.grad(d_res[:, t], pos, grad_outputs=first_row,  retain_graph=True)[0]
             d_tt1 = torch.autograd.grad(d_res[:, t], pos, grad_outputs=second_row, retain_graph=True)[0]
@@ -285,6 +287,7 @@ def main():
     ## out = pinn(pos)
     ## out.gradient()
     epochs = 20
+    pinn.to(device=device)
 
     for epoch in range(epochs):
 
@@ -308,7 +311,9 @@ def main():
             output, T, a_cur, w_cur, theta_t, p_tt = pinn.net(batch, 400)
             print(111122)
             # p_tt, theta_t, a_cur, w_cur, T = pinn.net(jacobian_t, jacobian_tt)
+            output.cpu()
             batch_loss = pinn.loss(output, T, a_cur, w_cur, theta_t, p_tt)
+            del(output)
 
             pinn.optimizer.zero_grad()
             batch_loss.backward()
