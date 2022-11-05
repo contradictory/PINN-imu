@@ -22,7 +22,7 @@ class PINN(nn.Module):
 
     def __init__(self,
                  # input,
-                 layers_size=[16, 20, 20, 6],  ## input size 406
+                 layers_size=[46, 20, 20, 20, 20, 20, 20, 20, 20, 6],  ## input size 406
                  out_size=6,
                  params_list=None):
 
@@ -38,6 +38,9 @@ class PINN(nn.Module):
         self.input = torch.tensor([], dtype=torch.float32)
         # self.input = input
         # self.pos
+        self.v_X = 0
+        self.v_Y = 0
+        self.v_Z = 0
 
         #### Initializing neural network
 
@@ -97,26 +100,26 @@ class PINN(nn.Module):
 
     #### Net NS
 
-    def net(self, batch, batch_size):
+    def net(self, batch_in, batch_size):
 
 
         pos = torch.arange(0, 100, step=1, dtype=torch.float32, requires_grad=True)
         pos = pos.unsqueeze(1).to(device)
 
-        k = 5
-        time_embed = torch.zeros(100, 10)
+        k = 20
+        time_embed = torch.zeros(100, 40)
         for i in range(0, 100):
-            for j in range(1, 5):
+            for j in range(1, k + 1):
                 time_embed[i][j - 1] = torch.sin(pos[i][0] / j)
-            for j in range(k, k + 6):
+            for j in range(k + 1, k + 21):
                 time_embed[i][j - 1] = torch.cos(pos[i][0] / j)
 
 
-        batch = np.transpose(batch)
+        batch_in = np.transpose(batch_in)
 
-        batch = torch.tensor(batch, dtype=torch.float32, requires_grad=True)
-
-        batch = torch.cat((batch, time_embed), 1).to(device)
+        batch_in = torch.tensor(batch_in, dtype=torch.float32, requires_grad=True)
+        print(batch_in.size())
+        batch = torch.cat((batch_in, time_embed), 1).to(device)
         self.input = batch
 
         output = self.forward(batch)
@@ -125,12 +128,12 @@ class PINN(nn.Module):
         p = [output_scalar[:, 0], output_scalar[:, 1], output_scalar[:, 2]]
         theta = [output_scalar[:, 3], output_scalar[:, 4], output_scalar[:, 5]]
 
-        theta_x = theta[0]
+        theta_x = theta[0]  ##: theta for input signal is wrong
         theta_y = theta[1]
         theta_z = theta[2]
 
 
-        g = [0, 0, -9.81]
+        g = torch.tensor([0, 0, -9.81], dtype=torch.float32)
 
         # requires_grad ???
         sx, cx, sy, cy, sz, cz = np.sin(theta_x), np.cos(theta_x), \
@@ -142,6 +145,7 @@ class PINN(nn.Module):
         T = [[cy * cz, cz * sx * sy - cx * sz, sx * sz + cx * cz * sy],
              [cy * sz, cx * cz + sx * sy * sz, cx * sy * sz - cz * sz],
              [-sy, cy * sz, cx * cy]]
+        T = torch.tensor(np.array(T), dtype=torch.float32)
 
 
         # grad_outputs_p = torch.ones(400, 1, dtype=torch.float32)
@@ -189,66 +193,101 @@ class PINN(nn.Module):
         print(d_res.size())
 
         d_tt = torch.tensor([], dtype=torch.float32).to(device)
-        for t in range(0, 100):
-            d_tt0 = torch.autograd.grad(d_res[:, t], pos, grad_outputs=first_row,  retain_graph=True)[0]
-            d_tt1 = torch.autograd.grad(d_res[:, t], pos, grad_outputs=second_row, retain_graph=True)[0]
-            d_tt2 = torch.autograd.grad(d_res[:, t], pos, grad_outputs=third_row, retain_graph=True)[0]
-            # d_tt3 = torch.autograd.grad(d_res[:, t], pos, grad_outputs=four_row, retain_graph=True)[0]   #### zheli haikeyi zai youhua qu 0, huozhe zhijie buyao zhe 3 weidu
-            # d_tt4 = torch.autograd.grad(d_res[:, t], pos, grad_outputs=five_row, retain_graph=True)[0]
-            # d_tt5 = torch.autograd.grad(d_res[:, t], pos, grad_outputs=six_row, retain_graph=True)[0]
-            d_tt3 = torch.zeros_like(d_tt0)
-            d_tt4 = torch.zeros_like(d_tt0)
-            d_tt5 = torch.zeros_like(d_tt0)
-
-            tmp[0], tmp[1], tmp[2], tmp[3], tmp[4], tmp[5] = d_tt0[t], d_tt1[t], d_tt2[t], d_tt3[t], d_tt4[t], d_tt5[t]
-            d_tt = torch.cat((d_tt, tmp.unsqueeze(dim=1)), dim=1)
-            print(t)
-            del(d_tt0)
-            del(d_tt1)
-            del(d_tt2)
-            del(d_tt3)
-            del(d_tt4)
-            del(d_tt5)
+        # for t in range(0, 100):
+        #     d_tt0 = torch.autograd.grad(d_res[:, t], pos, grad_outputs=first_row,  retain_graph=True)[0]
+        #     d_tt1 = torch.autograd.grad(d_res[:, t], pos, grad_outputs=second_row, retain_graph=True)[0]
+        #     d_tt2 = torch.autograd.grad(d_res[:, t], pos, grad_outputs=third_row, retain_graph=True)[0]
+        #     # d_tt3 = torch.autograd.grad(d_res[:, t], pos, grad_outputs=four_row, retain_graph=True)[0]   #### zheli haikeyi zai youhua qu 0, huozhe zhijie buyao zhe 3 weidu
+        #     # d_tt4 = torch.autograd.grad(d_res[:, t], pos, grad_outputs=five_row, retain_graph=True)[0]
+        #     # d_tt5 = torch.autograd.grad(d_res[:, t], pos, grad_outputs=six_row, retain_graph=True)[0]
+        #     d_tt3 = torch.zeros_like(d_tt0)
+        #     d_tt4 = torch.zeros_like(d_tt0)
+        #     d_tt5 = torch.zeros_like(d_tt0)
+        #
+        #     tmp[0], tmp[1], tmp[2], tmp[3], tmp[4], tmp[5] = d_tt0[t], d_tt1[t], d_tt2[t], d_tt3[t], d_tt4[t], d_tt5[t]
+        #     d_tt = torch.cat((d_tt, tmp.unsqueeze(dim=1)), dim=1)
+        #     print(t)
+        #     del(d_tt0)
+        #     del(d_tt1)
+        #     del(d_tt2)
+        #     del(d_tt3)
+        #     del(d_tt4)
+        #     del(d_tt5)
         print("d_tt get")
         print(d_tt)
 
 
-        p_tt = torch.cat((d_tt[0, :].unsqueeze(dim=0), d_tt[1, :].unsqueeze(dim=0), d_tt[2, :].unsqueeze(dim=0)), 0)
-        print(p_tt)
-        theta_t = torch.cat((d_res[3, :].unsqueeze(dim=0), d_res[4, :].unsqueeze(dim=0), d_res[5, :].unsqueeze(dim=0)), 0)
-        print(theta_t)
+        # p_tt = torch.cat((d_tt[0, :].unsqueeze(dim=0), d_tt[1, :].unsqueeze(dim=0), d_tt[2, :].unsqueeze(dim=0)), 0)
+        # print(p_tt)
+        # theta_t = torch.cat((d_res[3, :].unsqueeze(dim=0), d_res[4, :].unsqueeze(dim=0), d_res[5, :].unsqueeze(dim=0)), 0).to(device)
+        theta_t = d_res[3:6, :]
 
-        # a_cur = batch[:, 0 : 3]
-        a_cur = torch.ones_like(p_tt)
-        # w_cur = batch[:, 3 : 6]
-        w_cur = torch.ones_like(theta_t)
+        print(theta_t.size())
 
+        a_cur = torch.transpose(batch_in[:, 0 : 3], 0, 1)
+        w_cur = torch.transpose(batch_in[:, 3 : 6], 0, 1).to(device)
+        # print(w_cur)
 
+        ##: Integrate acceleration here to get the velocity for loss
+
+        # g = torch.tensor([0, 0, -9.81])
+        v_X, v_Y, v_Z = 0, 0, 0
+        # a_T = T[:, :, 0].mm(a_cur[:, 0].unsqueeze(dim=1)) + g.reshape(3, 1)
+        # v_curX = v_X + a_T[0] * 0.02
+        # v_curY = v_Y + a_T[0] * 0.02
+        # v_curZ = v_Z + a_T[0] * 0.02
+        # v_X = v_curX
+        # v_Y = v_curY
+        # v_Z = v_curZ
+        v_cur = torch.zeros((3, 100), dtype=torch.float32)
+        for i in range(0, 100):
+            # v_cur = torch.tensor(torch.zeros_like(a_T), dtype=torch.float32).to(device)
+            a_T = T[:, :, i].mm(a_cur[:, i].unsqueeze(dim=1)) + g.reshape(3, 1)
+            v_curX = v_X + a_T[0] * 0.02
+            v_curY = v_Y + a_T[0] * 0.02
+            v_curZ = v_Z + a_T[0] * 0.02
+            v_cur[0][i] = v_curX
+            v_cur[1][i] = v_curY
+            v_cur[2][i] = v_curZ
+            v_X = v_curX
+            v_Y = v_curY
+            v_Z = v_curZ
+
+        # self.v_X, self.v_Y, self.v_Z = v_X, v_Y, v_Z
+        v_cur = v_cur.to(device)
         print(a_cur.size())
-        return output, T, a_cur, w_cur, theta_t, p_tt
+        # self.writeMidState(v_cur, w_cur, theta_t, d_res[0:3, :])
+        return output, T, v_cur, w_cur, theta_t, d_res[0:3, :]
 
 
-    def loss(self, output, T, a_cur, w_cur, theta_t, p_tt):
+    # def writeMidState(self, v_cur, w_cur, theta_t, pos_t):
+    #     csv_cur = csv.writer(open('StateMid.csv', 'a'))
+    #     stateMid = torch.cat((v_cur, w_cur, pos_t, theta_t), dim=0).cpu().clone().detach().numpy()
+    #     stateWrite = numpy.transpose(stateMid)
+    #     csv_cur.writerows(stateWrite)
+
+
+    def loss(self, output, T, v_cur, w_cur, theta_t, p_t):
 
         # a f_a, w f_w
         # a_Physics = (v - v_Be) / self.t
         # w_physics = (e_angle - e_angleBe) / self.t
         # error_a = torch.mean(torch.square(a_deri - a_Physics))
         # error_w = torch.mean(torch.square(w_deri - w_deri))
-        g = torch.tensor([0, 0, -9.81])
-        T = torch.tensor(np.array(T))
+        # g = torch.tensor([0, 0, -9.81])
+        # T = torch.tensor(np.array(T))
 
-        a_T = T[:, :, 0].mm(a_cur[:, 0].unsqueeze(dim=1)) + g.reshape(3, 1)
-        ## T mul is wrong here
-        for i in range(1, 8):
-            a_T = torch.concat((a_T, T[:, :, i].mm(a_cur[:, i].unsqueeze(dim=1)) + g.reshape(3, 1)), 1)
+        # a_T = T[:, :, 0].mm(a_cur[:, 0].unsqueeze(dim=1)) + g.reshape(3, 1)
+        # ## T mul is wrong here
+        # for i in range(1, ):
+        #     a_T = torch.concat((a_T, T[:, :, i].mm(a_cur[:, i].unsqueeze(dim=1)) + g.reshape(3, 1)), 1)
         # print(a_T.size())
 
         # theta_t = torch.transpose(theta_t, 0, 1)
         # p_tt = torch.transpose(p_tt, 0, 1)
         # print(p_tt.size())
         # print(w_cur.shape)
-        error_a = torch.mean(torch.square(p_tt - a_T))
+        error_a = torch.mean(torch.square(p_t - v_cur))
         error_w = torch.mean(torch.square(theta_t - w_cur))
         return error_a + error_w
 
@@ -286,11 +325,12 @@ def main():
     ## pos = []
     ## out = pinn(pos)
     ## out.gradient()
-    epochs = 20
+    epochs = 1
     pinn.to(device=device)
+    csv_writer = csv.writer(open('Output.csv', 'a'))
 
     for epoch in range(epochs):
-
+        i = 1
 
         for batch in dataloader:
             t0 = time.time()
@@ -308,18 +348,22 @@ def main():
             #
             # jacobian_tt = autograd.functional.jacobian(lambda l: pinn(l), pos)
 
-            output, T, a_cur, w_cur, theta_t, p_tt = pinn.net(batch, 400)
+            output, T, a_cur, w_cur, theta_t, p_tt = pinn.net(batch, 100)
             print(111122)
             # p_tt, theta_t, a_cur, w_cur, T = pinn.net(jacobian_t, jacobian_tt)
-            output.cpu()
+            output = output.cpu()
             batch_loss = pinn.loss(output, T, a_cur, w_cur, theta_t, p_tt)
+            # write_output = numpy.transpose(output.detach().numpy())
+            # csv_writer.writerows(write_output)
             del(output)
 
             pinn.optimizer.zero_grad()
             batch_loss.backward()
             pinn.optimizer.step()
             t1 = time.time()
-            print('Loss= %.10f, Time= %.4f' % (batch_loss, t1 - t0))
+            print('Batch= %d, Loss= %.10f, Time= %.4f' % (i, batch_loss, t1 - t0))
+            # print('Epoch= %d' % epoch)
+            i += 1
 
             # output, T, a_cur, w_cur, theta_t, p_tt = net(batch, 400)
             #
@@ -334,6 +378,8 @@ def main():
             #
             #     ### Training status
             # print('Epoch %d, Loss= %.10f' % (epoch, loss_print))
+        print('Epoch= %d' % epoch)
+        i = 0
 
 
 
