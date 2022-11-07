@@ -38,9 +38,9 @@ class PINN(nn.Module):
         self.input = torch.tensor([], dtype=torch.float32)
         # self.input = input
         # self.pos
-        self.v_X = 0
-        self.v_Y = 0
-        self.v_Z = 0
+        # self.v_X = 0
+        # self.v_Y = 0
+        # self.v_Z = 0
 
         #### Initializing neural network
 
@@ -145,38 +145,31 @@ class PINN(nn.Module):
         T = [[cy * cz, cz * sx * sy - cx * sz, sx * sz + cx * cz * sy],
              [cy * sz, cx * cz + sx * sy * sz, cx * sy * sz - cz * sz],
              [-sy, cy * sz, cx * cy]]
-        T = torch.tensor(np.array(T), dtype=torch.float32)
+        T = torch.tensor(np.array(T), dtype=torch.float32).to(device)
 
 
-        # grad_outputs_p = torch.ones(400, 1, dtype=torch.float32)
         first_row = torch.tensor([1, 0, 0, 0, 0, 0]).to(device)
         second_row = torch.tensor([0, 1, 0, 0, 0, 0]).to(device)
         third_row = torch.tensor([0, 0, 1, 0, 0, 0]).to(device)
         four_row = torch.tensor([0, 0, 0, 1, 0, 0]).to(device)
         five_row = torch.tensor([0, 0, 0, 0, 1, 0]).to(device)
         six_row = torch.tensor([0, 0, 0, 0, 0, 1]).to(device)
-        # one = torch.ones((6, 6))
 
 
         output = torch.transpose(output, 0, 1)
         # print(output[:, 1])
         d_res = torch.tensor([], dtype=torch.float32).to(device)
         tmp = torch.zeros(6).to(device)
-        # output_t_x0 = autograd.grad(output[:, 0].unsqueeze(1), pos, torch.ones_like(torch.ones(400, 1)), retain_graph=True, create_graph=True)[1]
-        # output_t = autograd.grad(output, pos, grad_outputs=torch.ones_like(grad_outputs_p), retain_graph=True, create_graph=True)
 
-        # jacobian_t = autograd.functional.jacobian(lambda l: (l), pos)
-        # print(jacobian_t)
-        clear_space = []
         for t in range(0, 100):
             # tmp = output[:, t].backward(gradient=torch.ones_like(output[:, t]), retain_graph=True, create_graph=True)
             # l = torch.zeros_like(output[:, t])
             # l[t] = 1
 
             # d_veri = torch.autograd.grad(output[:, t], pos, grad_outputs=torch.ones_like(first_row), retain_graph=True)
-            d0 = torch.autograd.grad(output[:, t], pos, grad_outputs=first_row, retain_graph=True, create_graph=True)[0]
-            d1 = torch.autograd.grad(output[:, t], pos, grad_outputs=second_row, retain_graph=True, create_graph=True)[0]
-            d2 = torch.autograd.grad(output[:, t], pos, grad_outputs=third_row, retain_graph=True, create_graph=True)[0]
+            d0 = torch.autograd.grad(output[:, t], pos, grad_outputs=first_row, retain_graph=True)[0]
+            d1 = torch.autograd.grad(output[:, t], pos, grad_outputs=second_row, retain_graph=True)[0]
+            d2 = torch.autograd.grad(output[:, t], pos, grad_outputs=third_row, retain_graph=True)[0]
             d3 = torch.autograd.grad(output[:, t], pos, grad_outputs=four_row, retain_graph=True)[0]
             d4 = torch.autograd.grad(output[:, t], pos, grad_outputs=five_row, retain_graph=True)[0]
             d5 = torch.autograd.grad(output[:, t], pos, grad_outputs=six_row, retain_graph=True)[0]
@@ -224,70 +217,62 @@ class PINN(nn.Module):
 
         print(theta_t.size())
 
-        a_cur = torch.transpose(batch_in[:, 0 : 3], 0, 1)
+        a_cur = torch.transpose(batch_in[:, 0 : 3], 0, 1).to(device)
         w_cur = torch.transpose(batch_in[:, 3 : 6], 0, 1).to(device)
         # print(w_cur)
 
         ##: Integrate acceleration here to get the velocity for loss
 
-        # g = torch.tensor([0, 0, -9.81])
-        v_X, v_Y, v_Z = 0, 0, 0
-        # a_T = T[:, :, 0].mm(a_cur[:, 0].unsqueeze(dim=1)) + g.reshape(3, 1)
-        # v_curX = v_X + a_T[0] * 0.02
-        # v_curY = v_Y + a_T[0] * 0.02
-        # v_curZ = v_Z + a_T[0] * 0.02
-        # v_X = v_curX
-        # v_Y = v_curY
-        # v_Z = v_curZ
-        v_cur = torch.zeros((3, 100), dtype=torch.float32)
-        for i in range(0, 100):
-            # v_cur = torch.tensor(torch.zeros_like(a_T), dtype=torch.float32).to(device)
-            a_T = T[:, :, i].mm(a_cur[:, i].unsqueeze(dim=1)) + g.reshape(3, 1)
-            v_curX = v_X + a_T[0] * 0.02
-            v_curY = v_Y + a_T[0] * 0.02
-            v_curZ = v_Z + a_T[0] * 0.02
-            v_cur[0][i] = v_curX
-            v_cur[1][i] = v_curY
-            v_cur[2][i] = v_curZ
-            v_X = v_curX
-            v_Y = v_curY
-            v_Z = v_curZ
-
-        # self.v_X, self.v_Y, self.v_Z = v_X, v_Y, v_Z
-        v_cur = v_cur.to(device)
+        # # g = torch.tensor([0, 0, -9.81])
+        # v_X, v_Y, v_Z = 0, 0, 0
+        # # a_T = T[:, :, 0].mm(a_cur[:, 0].unsqueeze(dim=1)) + g.reshape(3, 1)
+        # # v_curX = v_X + a_T[0] * 0.02
+        # # v_curY = v_Y + a_T[0] * 0.02
+        # # v_curZ = v_Z + a_T[0] * 0.02
+        # # v_X = v_curX
+        # # v_Y = v_curY
+        # # v_Z = v_curZ
+        # v_cur = torch.zeros((3, 100), dtype=torch.float32)
+        # for i in range(0, 100):
+        #     # v_cur = torch.tensor(torch.zeros_like(a_T), dtype=torch.float32).to(device)
+        #     a_T = T[:, :, i].mm(a_cur[:, i].unsqueeze(dim=1)) + g.reshape(3, 1)
+        #     v_curX = v_X + a_T[0] * 0.02
+        #     v_curY = v_Y + a_T[0] * 0.02
+        #     v_curZ = v_Z + a_T[0] * 0.02
+        #     v_cur[0][i] = v_curX
+        #     v_cur[1][i] = v_curY
+        #     v_cur[2][i] = v_curZ
+        #     v_X = v_curX
+        #     v_Y = v_curY
+        #     v_Z = v_curZ
+        #
+        # # self.v_X, self.v_Y, self.v_Z = v_X, v_Y, v_Z
+        # v_cur = v_cur.to(device)
         print(a_cur.size())
-        # self.writeMidState(v_cur, w_cur, theta_t, d_res[0:3, :])
-        return output, T, v_cur, w_cur, theta_t, d_res[0:3, :]
+        return output, T, a_cur, w_cur, theta_t, d_res[0:3, :]
 
 
-    # def writeMidState(self, v_cur, w_cur, theta_t, pos_t):
-    #     csv_cur = csv.writer(open('StateMid.csv', 'a'))
-    #     stateMid = torch.cat((v_cur, w_cur, pos_t, theta_t), dim=0).cpu().clone().detach().numpy()
-    #     stateWrite = numpy.transpose(stateMid)
-    #     csv_cur.writerows(stateWrite)
-
-
-    def loss(self, output, T, v_cur, w_cur, theta_t, p_t):
+    def loss(self, output, T, a_cur, w_cur, theta_t, p_tt):
 
         # a f_a, w f_w
         # a_Physics = (v - v_Be) / self.t
         # w_physics = (e_angle - e_angleBe) / self.t
         # error_a = torch.mean(torch.square(a_deri - a_Physics))
         # error_w = torch.mean(torch.square(w_deri - w_deri))
-        # g = torch.tensor([0, 0, -9.81])
-        # T = torch.tensor(np.array(T))
+        g = torch.tensor([0, 0, -9.81]).to(device)
+        # T = torch.tensor(np.array(T)).to(device)
 
-        # a_T = T[:, :, 0].mm(a_cur[:, 0].unsqueeze(dim=1)) + g.reshape(3, 1)
-        # ## T mul is wrong here
-        # for i in range(1, ):
-        #     a_T = torch.concat((a_T, T[:, :, i].mm(a_cur[:, i].unsqueeze(dim=1)) + g.reshape(3, 1)), 1)
-        # print(a_T.size())
+        a_T = T[:, :, 0].mm(a_cur[:, 0].unsqueeze(dim=1)) + g.reshape(3, 1)
+        ## T mul is wrong here
+        for i in range(1, 100):
+            a_T = torch.concat((a_T, T[:, :, i].mm(a_cur[:, i].unsqueeze(dim=1)) + g.reshape(3, 1)), 1)
+        print(a_T.size())
 
         # theta_t = torch.transpose(theta_t, 0, 1)
         # p_tt = torch.transpose(p_tt, 0, 1)
-        # print(p_tt.size())
-        # print(w_cur.shape)
-        error_a = torch.mean(torch.square(p_t - v_cur))
+        print(p_tt.size())
+        print(w_cur.shape)
+        error_a = torch.mean(torch.square(p_tt - a_cur))
         error_w = torch.mean(torch.square(theta_t - w_cur))
         return error_a + error_w
 
@@ -334,27 +319,11 @@ def main():
 
         for batch in dataloader:
             t0 = time.time()
-            pos = torch.arange(0, 400, step=1, dtype=torch.float32, requires_grad=True)
-            pos = pos.unsqueeze(1)
-            # input_batch, time_embed = initBatch(batch, pos)
-            # for name, p in pinn.named_parameters(): print(name)
-            # optimizer = pinn.init_optimizer(pos)
-            # print(input_batch.shape)
-
-            # output = pinn(input_batch)
-            # print(222222)
-            # jacobian_t = autograd.functional.jacobian(lambda l: pinn(l), pos, create_graph=True, strategy='reverse-mode')
-            # print(jacobian_t.shape)
-            #
-            # jacobian_tt = autograd.functional.jacobian(lambda l: pinn(l), pos)
 
             output, T, a_cur, w_cur, theta_t, p_tt = pinn.net(batch, 100)
             print(111122)
-            # p_tt, theta_t, a_cur, w_cur, T = pinn.net(jacobian_t, jacobian_tt)
-            output = output.cpu()
+            # output.cpu()
             batch_loss = pinn.loss(output, T, a_cur, w_cur, theta_t, p_tt)
-            # write_output = numpy.transpose(output.detach().numpy())
-            # csv_writer.writerows(write_output)
             del(output)
 
             pinn.optimizer.zero_grad()
@@ -365,19 +334,6 @@ def main():
             # print('Epoch= %d' % epoch)
             i += 1
 
-            # output, T, a_cur, w_cur, theta_t, p_tt = net(batch, 400)
-            #
-            # loss_ = loss(output, T, a_cur, w_cur, theta_t, p_tt)
-            # loss_print = loss_
-            # optimizer.zero_grad()  # Clear gradients for the next mini-batches
-            #
-            # loss_.backward()  # Backpropagation, compute gradients
-            #
-            # optimizer.step()
-            #     # t1 = time.time()
-            #
-            #     ### Training status
-            # print('Epoch %d, Loss= %.10f' % (epoch, loss_print))
         print('Epoch= %d' % epoch)
         i = 0
 
